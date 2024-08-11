@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movi-Smart</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" href="logo-movi-smart-corregido.png">
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+    <script src="https://api.opencagedata.com/geocode/v1/json?q=LAT+LNG&key=bf49ac99e495464fa6549ded832be45f"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        footer {
+            margin-top: 20px;
+            text-align: center;
+            padding: 10px;
+            background-color: #f0f0f0;
+        }
+        footer p {
+            font-style: italic;
+        }
+        footer p span {
+            font-weight: bold;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        #map {
+            height: 50px; /* Ajusta la altura del mapa si es necesario */
+        }
+        #transportList {
+            margin-top: 20px;
+            list-style: none;
+            padding: 0;
+        }
+        #transportList li {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container text-center">
+    <img src="logo-movi-smart-corregido.png" alt="Logo" class="img-fluid" style="width: 4500px; height: 250px;"> 
+    <h1>Movi-Smart</h1>
+
+    <div class="form-group">
+        <label for="userLocation">Selecciona la ubicación del usuario:</label>
+        <select id="userLocation" class="form-control">
+            <option value="Estadio Azteca">Estadio Azteca</option>
+            <option value="Periférico">Periférico</option>
+            <option value="San Fernando (Tlalpan e Hidalgo)">San Fernando (Tlalpan e Hidalgo)</option>
+            <option value="La Joya">La Joya</option>
+            <option value="San Pedro">San Pedro</option>
+            <option value="San Andres">San Andres</option>
+            <option value="Km 25">Km 25</option>
+            <option value="Km 28">Km 28</option>
+            <option value="Sec. 56 (Cierre de Circuito San Miguel Topilejo)">Sec. 56 (Cierre de Circuito San Miguel Topilejo)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="searchQuery">Buscar estación:</label>
+        <select id="searchQuery" class="form-control">
+            <option value="">Selecciona una estación</option>
+            <option value="Estadio Azteca">Estadio Azteca</option>
+            <option value="Periférico">Periférico</option>
+            <option value="San Fernando (Tlalpan e Hidalgo)">San Fernando (Tlalpan e Hidalgo)</option>
+            <option value="La Joya">La Joya</option>
+            <option value="San Pedro">San Pedro</option>
+            <option value="San Andres">San Andres</option>
+            <option value="Km 25">Km 25</option>
+            <option value="Km 28">Km 28</option>
+            <option value="Sec. 56 (Cierre de Circuito San Miguel Topilejo)">Sec. 56 (Cierre de Circuito San Miguel Topilejo)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="transportType">Tipo de transporte:</label>
+        <select id="transportType" class="form-control">
+            <option value="">Todos</option>
+            <option value="RTP">RTP</option>
+            <option value="Microbus">MicroBus</option>
+        </select>
+    </div>
+
+    <button class="btn btn-primary btn-lg" onclick="checkNearbyTransport()">Verificar</button>
+
+    <div id="map"></div>
+    <div id="transportList"></div>
+</div>
+
+<footer>
+    <p><i>Powered by <b>MacoyDesarrolla</b></i></p>
+</footer>
+
+<script>
+    let map;
+    let transportMarkers = [];
+    const opencageApiKey = 'bf49ac99e495464fa6549ded832be45f';
+    const transportPoints = {
+        "Estadio Azteca": { lat: 19.30264, lon: -99.14821 },
+        "Periférico": { lat: 19.29494, lon: -99.15617 },
+        "San Fernando (Tlalpan e Hidalgo)": { lat: 19.28833, lon: -99.16311 },
+        "La Joya": { lat: 19.27991, lon: -99.16673 },
+        "San Pedro": { lat: 19.26719, lon: -99.17104 },
+        "San Andres": { lat: 19.254026, lon: -99.177031 },
+        "Km 25": { lat: 19.235086, lon: -99.157474 },
+        "Km 28": { lat: 19.235086, lon: -99.157474 },
+        "Sec. 56 (Cierre de Circuito San Miguel Topilejo)": { lat: 19.19211, lon: -99.14345 }
+    };
+
+    function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+            center: { lat: 19.235086, lng: -99.157474 }, // Coordenadas de Km 28
+            zoom: 13
+        });
+    }
+
+    function checkNearbyTransport() {
+        const selectedLocation = document.getElementById("userLocation").value;
+        const userLocation = transportPoints[selectedLocation];
+        const searchQuery = document.getElementById("searchQuery").value.toLowerCase();
+
+        // Obtener puntos de transporte público cercanos usando OpenCage Geocoding API
+        fetch(`https://api.opencagedata.com/geocode/v1/json?q=${userLocation.lat}+${userLocation.lon}&key=${opencageApiKey}&pretty=1&no_annotations=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status.code == 200 && data.results.length > 0) {
+                    transportMarkers.forEach(marker => marker.setMap(null));
+                    transportMarkers = [];
+                    document.getElementById("transportList").innerHTML = "";
+
+                    const filteredResults = data.results.filter(result => {
+                        // Filtrar por nombre de estación (si se seleccionó una)
+                        if (searchQuery && result.formatted.toLowerCase().includes(searchQuery)) {
+                            return true;
+                        }
+                        return true; // Si no hay filtro, mostrar todos los resultados
+                    });
+
+                    // Mostrar los puntos de transporte en el mapa
+                    filteredResults.forEach(result => {
+                        const lat = result.geometry.lat;
+                        const lng = result.geometry.lng;
+                        const marker = new google.maps.Marker({
+                            position: { lat: lat, lng: lng },
+                            map: map,
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 8,
+                                fillColor: 'red',
+                                fillOpacity: 1,
+                                strokeColor: 'red',
+                                strokeWeight: 2
+                            }
+                        });
+                        transportMarkers.push(marker);
+                    });
+
+                    if (filteredResults.length > 0) {
+                        const transportList = document.getElementById("transportList");
+                        filteredResults.forEach(result => {
+                            const listItem = document.createElement("li");
+                            // Calcula la distancia entre la ubicación del usuario y el punto de transporte
+                            const distance = calculateDistance(userLocation.lat, userLocation.lon, result.geometry.lat, result.geometry.lng);
+                            // Muestra la distancia en el elemento de la lista
+                            listItem.innerHTML = `<strong>${result.formatted}</strong> - Distancia: ${distance.toFixed(2)} km`;
+                            listItem.addEventListener('click', () => {
+                                window.open(`https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lon}&destination=${result.geometry.lat},${result.geometry.lng}`, '_blank');
+                            });
+                            transportList.appendChild(listItem);
+                        });
+                    } else {
+                        alert("No hay transporte público cercano dentro del radio de búsqueda.");
+                    }
+                } else {
+                    console.error("Error al obtener resultados de OpenCage:", data.status.message);
+                    alert("No se pudieron obtener resultados de OpenCage. Intenta de nuevo más tarde.");
+                }
+            })
+            .catch((error) => {
+                console.warn(error.message);
+                alert("Error en la solicitud a OpenCage. Intenta de nuevo más tarde.");
+            });
+    }
+
+    // Función para calcular la distancia entre dos puntos (usando la fórmula de Haversine)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radio de la Tierra en km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
+        return distance;
+    }
+</script>
+
+</body>
+</html>
